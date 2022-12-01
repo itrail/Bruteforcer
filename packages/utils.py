@@ -6,6 +6,7 @@ def collect_input_args(parser):
         "-M", "--mode", type=str, required=True
     )  # bruteforce (one account many passwords)/password_spraying (one password many logins)/credentials_stuffing (one account one password)
     parser.add_argument("-U", "--url", type=str, required=True)
+    parser.add_argument("-F", "--form_scheme", type=str, required=True)
     parser.add_argument(
         "-l",
         "--logins_list",
@@ -19,7 +20,7 @@ def collect_input_args(parser):
     parser.add_argument("-p", "--passwords_list", type=str)
     parser.add_argument("-P", "--Password", type=str)
     parser.add_argument("--proxies", type=str)
-    parser.add_argument("--attemps_per_ip", type=str)
+    parser.add_argument("--attemps_per_ip", type=int)
     return parser.parse_args()
 
 

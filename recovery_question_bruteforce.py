@@ -52,11 +52,9 @@ else:
             #         "birthDate": "1997-07-10",
             #     }
             # )
-            data = json.dumps(jsonDict)
-            print(data)
 
-            data_bytes = str.encode(data)
-            print(f"IP: {proxy_list[index]}, Data: {data}")
+            data_bytes = str.encode(json.dumps(jsonDict))
+            print(f"IP: {proxy_list[index]}, Data: {json.dumps(jsonDict)}")
             proxy_handler = urllib.request.ProxyHandler({"http": proxy_list[index]})
             opener = urllib.request.build_opener(proxy_handler)
             opener.addheaders = [("User-agent", "Mozilla/5.0")]
