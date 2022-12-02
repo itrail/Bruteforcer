@@ -1,7 +1,7 @@
 {
-    "email": "testowe10071997@wp.pl",
+    "email": "${USERNAME}",
     "answers": [
-        "${answers}"
+        "${PASSWORD}"
     ],
     "birthDate": "1997-07-10"
 }

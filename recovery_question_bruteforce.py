@@ -30,17 +30,17 @@ else:
             #     + answer
             #     + '"],"birthDate":"1997-07-10"}'
             # )
-            fileObj = open(
+            json_scheme = open(
                 "form.json",
             )
-            jsonDict = json.load(fileObj)
-            for key in jsonDict:
-                if type(jsonDict[key]) == str:
-                    if "$" in jsonDict[key]:
-                        jsonDict[key] = os.path.expandvars(os.getenv(key, password))
-                elif type(jsonDict[key]) == list:
-                    if "$" in jsonDict[key][0]:
-                        jsonDict[key][0] = os.path.expandvars(
+            form_scheme = json.load(json_scheme)
+            for key in form_scheme:
+                if type(form_scheme[key]) == str:
+                    if "$" in form_scheme[key]:
+                        form_scheme[key] = os.path.expandvars(os.getenv(key, password))
+                elif type(form_scheme[key]) == list:
+                    if "$" in form_scheme[key][0]:
+                        form_scheme[key][0] = os.path.expandvars(
                             os.getenv(key[0], password)
                         )
                 else:
@@ -53,8 +53,8 @@ else:
             #     }
             # )
 
-            data_bytes = str.encode(json.dumps(jsonDict))
-            print(f"IP: {proxy_list[index]}, Data: {json.dumps(jsonDict)}")
+            data_bytes = str.encode(json.dumps(form_scheme))
+            print(f"IP: {proxy_list[index]}, Data: {json.dumps(form_scheme)}")
             proxy_handler = urllib.request.ProxyHandler({"http": proxy_list[index]})
             opener = urllib.request.build_opener(proxy_handler)
             opener.addheaders = [("User-agent", "Mozilla/5.0")]
