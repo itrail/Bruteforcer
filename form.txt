@@ -1,1 +1,1 @@
-{"email":"testowe10071997@wp.pl","answers":["${answer}"],"birthDate":"1997-07-10"}
+{"email":"${LOGIN}","answers":["${answer}"],"birthDate":"1997-07-10"}

