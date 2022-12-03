@@ -1,15 +1,16 @@
 import argparse
-import sys, json, os
+import sys, json, os, re
 from packages.utils import (
     collect_input_args,
     validate_input_args,
     unpack_variables_from_json,
+    do_sth,
 )
 import urllib.request, urllib.error, urllib.response, urllib.parse
 from packages.config import *
 
 
-class Bruteforcer:
+class BruteforcerG:
     def __init__(
         self, url, form_scheme, credentials_file, proxies, attemps_per_ip
     ) -> None:
@@ -59,11 +60,49 @@ class Bruteforcer:
                     counter = 0
 
 
-class JsonFormBruteforcer(Bruteforcer):
-    def __init__(
-        self, url, form_scheme, credentials_file, proxies, attemps_per_ip
-    ) -> None:
-        super().__init__(url, form_scheme, credentials_file, proxies, attemps_per_ip)
+class Bruteforcer:
+    def __init__(self, data_scheme_file, credentials_file_raw) -> None:
+        with open(data_scheme_file, "r") as file:
+            self.data_scheme = file.read().rstrip()
+            print(self.data_scheme)
+            print(len(re.findall("\$\{(\w)+}", self.data_scheme)))
+            with open(credentials_file_raw) as credentials_file:
+                self.variables_to_injection, self.credentials_list = do_sth(
+                    self.data_scheme, credentials_file
+                )
+
+            print(self.data_scheme.replace("${answer}", "dupa"))
+            print(self.data_scheme)
+
+    def perform_bruteforce(self):
+        print(self.credentials_list)
+        print(self.data_scheme)
+        print(self.variables_to_injection)
+        for credentials in self.credentials_list:
+            data_to_post = self.data_scheme
+            for i in range(len(self.variables_to_injection)):
+                data_to_post = data_to_post.replace(
+                    self.variables_to_injection[i], credentials[i]
+                )
+                print(data_to_post)
+        pass
+
+    def proxy_rotating_injection(self, index, data_bytes):
+        proxy_handler = urllib.request.ProxyHandler(
+            {"http": self.proxies[index], "https": self.proxies[index]}
+        )
+        opener = urllib.request.build_opener(proxy_handler)
+        opener.addheaders = [("User-agent", "Mozilla/5.0")]
+        urllib.request.install_opener(opener)
+        request = urllib.request.Request(self.url, data=data_bytes)
+        with urllib.request.urlopen(request, timeout=10) as response:
+            print(response.status)
+
+    def standard_injection(self, index, data_bytes):
+        pass
+
+    def funct(self):
+        print("OK")
 
 
 class JsonData:
@@ -83,13 +122,7 @@ class JsonData:
 
 parser = argparse.ArgumentParser()
 args = collect_input_args(parser)
-if validate_input_args(args) == 1:
+validate_input_args(args)
 
-    bruteforce_tool = JsonFormBruteforcer(
-        args.url,
-        args.form_scheme,
-        args.credentials_file,
-        args.proxies,
-        args.attemps_per_ip,
-    )
-    bruteforce_tool.perform_bruteforce()
+bruteforce_tool = Bruteforcer(args.data_scheme, args.credentials_file)
+bruteforce_tool.perform_bruteforce()
