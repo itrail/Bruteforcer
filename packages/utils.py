@@ -15,6 +15,7 @@ def validate_input_args(args):
         print("Login input is empty")
         sys.exit(-1)
     if not args.proxies:
+        args.proxies = ""
         print("Bruteforce will be perfomed with your IP")
     if not args.attemps_per_ip:
         args.attemps_per_ip = 1

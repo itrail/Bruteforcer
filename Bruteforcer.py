@@ -130,20 +130,24 @@ class Bruteforcer:
                 self.credentials_list,
             ) = validate_credentials_file(self.data_scheme, credentials_list)
         self.attemps_per_ip = attemps_per_ip
-        with open(proxies_file_raw) as proxies_file:
-            self.proxies = [line.rstrip() for line in proxies_file if line.strip()]
-            print(self.proxies)
-            if self.attemps_per_ip * len(self.proxies) < len(self.credentials_list):
-                # warning
-                print(
-                    f"There is too much credentials to check for (`{len(self.credentials_list)}`) for `{self.attemps_per_ip}` trials per `{len(self.proxies)}` IP addresses. Rest of the attemps will be performed with last IP in list `{self.proxies[len(self.proxies)-1]}`"
-                )
-                while self.attemps_per_ip * len(self.proxies) < len(
-                    self.credentials_list
-                ):
-                    self.proxies.insert(
-                        len(self.proxies), self.proxies[len(self.proxies) - 1]
+        # TODO error
+        if proxies_file_raw:
+            with open(proxies_file_raw) as proxies_file:
+                self.proxies = [line.rstrip() for line in proxies_file if line.strip()]
+                print(self.proxies)
+                if self.attemps_per_ip * len(self.proxies) < len(self.credentials_list):
+                    # warning
+                    print(
+                        f"There is too much credentials to check for (`{len(self.credentials_list)}`) for `{self.attemps_per_ip}` trials per `{len(self.proxies)}` IP addresses. Rest of the attemps will be performed with last IP in list `{self.proxies[len(self.proxies)-1]}`"
                     )
+                    while self.attemps_per_ip * len(self.proxies) < len(
+                        self.credentials_list
+                    ):
+                        self.proxies.insert(
+                            len(self.proxies), self.proxies[len(self.proxies) - 1]
+                        )
+        else:
+            self.proxies = []
 
     def perform_bruteforce(self):
         counter = 0
@@ -157,6 +161,7 @@ class Bruteforcer:
             if self.proxies:
                 if counter < self.attemps_per_ip:
                     self.proxy_rotating_injection(index, str.encode(data_to_post))
+                    # TODO
                     # jeśli się uda to git
                     # jeśli nie to zmień IP na następny
                     counter = counter + 1
@@ -208,6 +213,7 @@ parser = argparse.ArgumentParser()
 args = collect_input_args(parser)
 validate_input_args(args)
 
+print(args.proxies)
 bruteforce_tool = Bruteforcer(
     args.url, args.data_scheme, args.credentials_file, args.proxies, args.attemps_per_ip
 )
