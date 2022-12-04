@@ -17,6 +17,7 @@ def validate_input_args(args):
     if not args.proxies:
         print("Bruteforce will be perfomed with your IP")
     if not args.attemps_per_ip:
+        args.attemps_per_ip = 1
         print("Bruteforce will be perfomed in default mode 1 password per 1 one IP")
     for arg in vars(args):
         if getattr(args, arg):
@@ -36,8 +37,9 @@ def do_sth(data_scheme, credentials_file):
     credentials = []
     for line in credentials_file:
         fields_cnt = line.count(":") + 1
+        # debug
         print(
-            f"Fields in credentials file: {fields_cnt}, Variables in your data to injection file: {len(variables_to_injection)}"
+            f"Fields in line `{line}`credentials file: `{fields_cnt}`, Variables in your data to injection file: {len(variables_to_injection)}"
         )
         if fields_cnt > 0:
             if fields_cnt == len(variables_to_injection):
