@@ -165,7 +165,7 @@ class Bruteforcer:
                     index = 0
                     # recursion
                     print(f"NEW INDEX {index}")
-                    control_the_proxy_rotation(index, data_to_post)
+                    index = control_the_proxy_rotation(index, data_to_post)
             return index
 
         counter = 0
