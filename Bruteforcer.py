@@ -151,7 +151,7 @@ class Bruteforcer:
     def perform_bruteforce(self):
         def control_the_proxy_rotation(index, data_to_post):
             try:
-                self.proxy_rotating_injection(index, str.encode(data_to_post))
+                index = self.proxy_rotating_injection(index, str.encode(data_to_post))
             except urllib.error.HTTPError as HTTPe:
                 print(f"Exception: {HTTPe}")
             except urllib.error.URLError as URLe:
@@ -160,7 +160,9 @@ class Bruteforcer:
                 self.proxies = [i for i in self.proxies if i != self.proxies[index]]
                 print(self.proxies)
                 if index != old_size_proxy_list:
+                    print(index)
                     index = index + 1
+                    print(f"TUTAJ {index}")
                 else:
                     index = 0
                     # recursion
@@ -184,7 +186,7 @@ class Bruteforcer:
                     # jeśli nie to zmień IP na następny
                     counter = counter + 1
                 else:
-                    if index != len(set(self.proxies)) - 1:
+                    if index != len(self.proxies) - 1:
                         index = index + 1
                     else:
                         index = 0
@@ -194,7 +196,7 @@ class Bruteforcer:
         pass
 
     def proxy_rotating_injection(self, index, data_bytes):
-        print(index)
+        print(index, self.proxies)
         print(f"IP: `{self.proxies[index]}`, Data: `{data_bytes}`")
         proxy_handler = urllib.request.ProxyHandler(
             {"http": self.proxies[index], "https": self.proxies[index]}
@@ -205,6 +207,7 @@ class Bruteforcer:
         request = urllib.request.Request(self.url, data=data_bytes)
         with urllib.request.urlopen(request, timeout=10) as response:
             print(response.status)
+        return index
 
     def standard_injection(self, data_bytes):
         print(f"IP: Your IP, Data: `{data_bytes}`")
