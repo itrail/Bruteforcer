@@ -1,1 +1,1 @@
-{"email":"${LOGIN}","answers":["${answer}"],"birthDate":"1997-07-10"}
+{"email":"test@gmail.com","answers":["${answer}"],"birthDate":"1992-11-10"}
