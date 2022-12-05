@@ -1,7 +1,0 @@
-{
-    "email": "${USERNAME}",
-    "answers": [
-        "${PASSWORD}"
-    ],
-    "birthDate": "1997-07-10"
-}

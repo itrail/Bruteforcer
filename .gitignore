@@ -3,3 +3,7 @@ venv
 *.pyc
 test
 .vscode
+password_list.txt
+IP_list.txt
+form.txt
+*.txt
