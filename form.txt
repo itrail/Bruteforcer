@@ -1,1 +1,1 @@
-{"email":"test@gmail.com","answers":["${answer}"],"birthDate":"1992-11-10"}
+captcha_type=CAPTCHA_SKIP&login=test10071997%40buziaczek.pl&password=${PASS}

