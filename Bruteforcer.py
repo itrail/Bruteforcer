@@ -63,7 +63,7 @@ class Bruteforcer:
     def __validate_credentials_file__(self, data_scheme, credentials_file):
         # jeżeli zmienna jest duplikowana to i tak zmieniane są wszystkie na raz
         variables_to_injection = list(
-            dict.fromkeys(re.findall("\$\{[a-zA-Z]+}", data_scheme))
+            dict.fromkeys(re.findall("\$\{[a-zA-Z]+}", data_scheme))  # config
         )
         len_variables_to_injection = len(variables_to_injection)
         credentials = []
@@ -109,8 +109,7 @@ class Bruteforcer:
             )
             if keyboard_input.lower() in ["y", "yes", "yeah", ""]:
                 return True
-            else:
-                return False
+            return False
 
         self.headers = {}
         try:
@@ -169,20 +168,24 @@ class Bruteforcer:
                 sys.exit(-1)
             return credentials_list
 
+    def __ask_for_continue_without_proxy__(self):
+        keyboard_input = input(
+            "Would You like to continue bruteforce without proxy? Y or N?"
+        )
+        if keyboard_input.lower() in ["y", "yes", "yeah", ""]:
+            print("I'll continue with your IP")
+            return True
+        return False
+
     def set_proxies(self, proxies_file_raw):
         try:
             with open(proxies_file_raw) as proxies_file:
                 self.proxies = [line.rstrip() for line in proxies_file if line.strip()]
         except FileNotFoundError as e:
             print(f"Exception in proxies file `{proxies_file_raw}`: `{e}`")
-            keyboard_input = input("Continue bruteforce without proxy? Y or N?")
-            if keyboard_input.lower() in ["y", "yes", "yeah", ""]:
-                pass
-            else:
+            if not self.__ask_for_continue_without_proxy__():
                 print("Bye!")
                 sys.exit(0)
-            print("I'll continue with your IP")
-
             return
 
         if self.attemps_per_ip * len(self.proxies) < len(self.credentials_list):
@@ -197,9 +200,11 @@ class Bruteforcer:
 
     def __add_headers__(self, opener):
         if self.headers:
+            print(f"self.headers `{self.headers}`")
             for key, value in self.headers.items():
                 opener.addheaders = [(key, value)]
         else:
+            print(self.host)
             opener.addheaders = [("Referer", self.host)]
         return opener
 
@@ -230,13 +235,10 @@ class Bruteforcer:
                     # recursion
                     index = control_the_proxy_rotation(index, data_to_post)
                 else:
-                    keyboard_input = input("Continue bruteforce without proxy? Y or N?")
-                    if keyboard_input.lower() in ["y", "yes", "yeah", ""]:
-                        pass
-                    else:
+                    if not self.__ask_for_continue_without_proxy__():
                         print("Bye!")
                         sys.exit(0)
-                    print("I'll continue with your IP")
+                    self.standard_injection(str.encode(data_to_post))
             return index
 
         counter = 0

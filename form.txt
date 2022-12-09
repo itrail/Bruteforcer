@@ -1,1 +1,1 @@
-captcha_type=CAPTCHA_SKIP&login=${user}&password=${PASS}
+login_username=test10071997%40wp.pl&password=${dupa}
