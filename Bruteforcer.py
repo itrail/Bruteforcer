@@ -236,7 +236,6 @@ class Bruteforcer:
             try:
                 index = self.proxy_rotating_injection(index, str.encode(data_to_post))
             except urllib.error.HTTPError as HTTPe:
-                # self.logger.debug(HTTPe.code)
                 if HTTPe.reason in [
                     "Bad Request",
                     "Unauthorized",
@@ -245,21 +244,23 @@ class Bruteforcer:
                     self.logger.info("[-] Incorrect credentials [-]")
                 else:
                     self.logger.warning(f"Exception: {HTTPe}")
-            except urllib.error.URLError as URLe:
+            except Exception as e:
                 self.logger.warning(
-                    f"Exception: `{URLe}`! I'll try it with another IP from list"
+                    f"Exception: `{e}`! I'll try it with another IP from list"
                 )
                 self.proxies = [i for i in self.proxies if i != self.proxies[index]]
                 if self.proxies:
                     old_size_proxy_list = len(self.proxies) - 1
-                    self.logger.debug(f"INDEX {index}, SIZE {old_size_proxy_list}")
+                    # self.logger.debug(f"INDEX {index}, SIZE {old_size_proxy_list}")
                     if index < old_size_proxy_list:
                         index = index + 1
                     else:
                         index = 0
+                    self.logger.debug(f"I'll try with `{self.proxies[index]}` IP")
                     # recursion
                     index = control_the_proxy_rotation(index, data_to_post)
                 else:
+                    self.logger.debug("No more working IP address in your list")
                     if not self.__ask_for_continue_without_proxy__():
                         self.logger.info("Bye!")
                         sys.exit(0)
@@ -294,11 +295,13 @@ class Bruteforcer:
                         "Unauthorized",
                         "Unprocessable Entity",
                     ]:
-                        self.logger.isEnabledFor("[-] Incorrect credentials [-]")
+                        self.logger.info("[-] Incorrect credentials [-]")
                     else:
                         self.logger.warning(f"Exception: {HTTPe}")
-                except urllib.error.URLError as URLe:
-                    self.logger.warning(f"Exception: `{URLe}`")
+                except urllib.error.error as e:
+                    self.logger.warning(f"Exception: `{e}`")
+                except Exception as e:
+                    self.logger.error(f"Critical exception: `{e}`")
         return
 
     def proxy_rotating_injection(self, index, data_bytes):
@@ -388,10 +391,14 @@ if __name__ == "__main__":
     try:
         main(args)
     except KeyboardInterrupt:
-        logger.warning("Interrupted")
+        logger.warning("Interrupted by user")
         try:
             sys.exit(0)
         except SystemExit:
             os._exit(0)
+    except TimeoutError as e:
+        logger.error(
+            f"Exception `{e}`, Probably You should add more headers to POST request"
+        )
     except Exception as e:
         logger.error(f"Exception `{e}`")
