@@ -181,22 +181,28 @@ class Bruteforcer:
         try:
             with open(proxies_file_raw) as proxies_file:
                 self.proxies = [line.rstrip() for line in proxies_file if line.strip()]
+                if not self.proxies:
+                    raise ValueError(f"{proxies_file_raw} is empty")
         except FileNotFoundError as e:
             print(f"Exception in proxies file `{proxies_file_raw}`: `{e}`")
             if not self.__ask_for_continue_without_proxy__():
                 print("Bye!")
                 sys.exit(0)
             return
-
-        if self.attemps_per_ip * len(self.proxies) < len(self.credentials_list):
-            # warning
-            print(
-                f"There is too much credentials to check for (`{len(self.credentials_list)}`) for `{self.attemps_per_ip}` trials per `{len(self.proxies)}` IP addresses. Rest of the attemps will be performed with last IP in list `{self.proxies[len(self.proxies)-1]}`"
-            )
-            while self.attemps_per_ip * len(self.proxies) < len(self.credentials_list):
-                self.proxies.insert(
-                    len(self.proxies), self.proxies[len(self.proxies) - 1]
+        except ValueError as e:
+            print(f"Exception: `{e}`")
+        else:
+            if self.attemps_per_ip * len(self.proxies) < len(self.credentials_list):
+                # warning
+                print(
+                    f"There is too much credentials to check for (`{len(self.credentials_list)}`) for `{self.attemps_per_ip}` trials per `{len(self.proxies)}` IP addresses. Rest of the attemps will be performed with last IP in list `{self.proxies[len(self.proxies)-1]}`"
                 )
+                while self.attemps_per_ip * len(self.proxies) < len(
+                    self.credentials_list
+                ):
+                    self.proxies.insert(
+                        len(self.proxies), self.proxies[len(self.proxies) - 1]
+                    )
 
     def __add_headers__(self, opener):
         if self.headers:
@@ -204,7 +210,6 @@ class Bruteforcer:
             for key, value in self.headers.items():
                 opener.addheaders = [(key, value)]
         else:
-            print(self.host)
             opener.addheaders = [("Referer", self.host)]
         return opener
 
