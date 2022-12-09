@@ -6,19 +6,7 @@ from packages.utils import (
 )
 import urllib.request, urllib.error, urllib.response, urllib.parse
 from packages.config import *
-
-
-class MyHTTPRedirectHandler(urllib.request.HTTPRedirectHandler):
-    def __init__(self) -> None:
-        super().__init__()
-        self.redirects = []
-
-    def redirect_request(self, req, fp, code, msg, headers, newUrl):
-        self.redirects.append(headers["location"])
-        return super().redirect_request(req, fp, code, msg, headers, newUrl)
-
-    def get_redirects(self):
-        return self.redirects
+from BruteforcerHTTPRedirectHandler import BruteforcerHTTPRedirectHandler
 
 
 class Bruteforcer:
@@ -206,7 +194,6 @@ class Bruteforcer:
 
     def __add_headers__(self, opener):
         if self.headers:
-            print(f"self.headers `{self.headers}`")
             for key, value in self.headers.items():
                 opener.addheaders = [(key, value)]
         else:
@@ -283,7 +270,7 @@ class Bruteforcer:
 
     def proxy_rotating_injection(self, index, data_bytes):
         print(f"IP: `{self.proxies[index]}`, Data: `{data_bytes}`")
-        redirect_handler = MyHTTPRedirectHandler()
+        redirect_handler = BruteforcerHTTPRedirectHandler()
         proxy_handler = urllib.request.ProxyHandler(
             {"http": self.proxies[index], "https": self.proxies[index]}
         )
@@ -302,7 +289,7 @@ class Bruteforcer:
 
     def standard_injection(self, data_bytes):
         print(f"IP: Your IP, Data: `{data_bytes}`")
-        redirect_handler = MyHTTPRedirectHandler()
+        redirect_handler = BruteforcerHTTPRedirectHandler()
         opener = urllib.request.build_opener(redirect_handler)
         opener = self.__add_headers__(opener)
         urllib.request.install_opener(opener)
@@ -332,34 +319,35 @@ class Bruteforcer:
         # print(response.read())
         if response.code in [200, 201] and not is_fail_url_match:
             return True
-        else:
-            return False
+        return False
 
 
 parser = argparse.ArgumentParser()
 args = collect_input_args(parser)
 validate_input_args(args)
 
-# try:
-#     bruteforce_tool = Bruteforcer(
-#         args.url,
-#         args.headers,
-#         args.data_scheme,
-#         args.credentials_file,
-#         args.fail_url,
-#         args.proxies,
-#         args.attemps_per_ip,
-#     )
-#     bruteforce_tool.perform_bruteforce()
-# except Exception as e:
-#     print(e)
-bruteforce_tool = Bruteforcer(
-    args.url,
-    args.headers,
-    args.data_scheme,
-    args.credentials_file,
-    args.fail_url,
-    args.proxies,
-    args.attemps_per_ip,
-)
-bruteforce_tool.perform_bruteforce()
+
+def main():
+    bruteforce_tool = Bruteforcer(
+        args.url,
+        args.headers,
+        args.data_scheme,
+        args.credentials_file,
+        args.fail_url,
+        args.proxies,
+        args.attemps_per_ip,
+    )
+    bruteforce_tool.perform_bruteforce()
+
+
+if __name__ == "__main__":
+    try:
+        main()
+    except KeyboardInterrupt:
+        print("Interrupted")
+        try:
+            sys.exit(0)
+        except SystemExit:
+            os._exit(0)
+    except Exception as e:
+        print(f"Exception `{e}`")
