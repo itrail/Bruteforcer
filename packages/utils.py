@@ -1,7 +1,5 @@
-import argparse, os, sys, re
-
-
 def collect_input_args(parser):
+    parser.add_argument("-v", "--verbose", action="count", dest="verbose", default=0)
     parser.add_argument("-U", "--url", type=str, required=True)
     parser.add_argument("-H", "--headers", type=str)
     parser.add_argument("-D", "--data_scheme", type=str, required=True)
