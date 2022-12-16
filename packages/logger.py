@@ -32,7 +32,7 @@ class Logger(object):
 
     def _stdLogger(self, stream=sys.stdout, level=logging.DEBUG, formatterName="rich"):
         # handler: stream
-        log_handler_stream = logging.StreamHandler(stream=sys.stderr)
+        log_handler_stream = logging.StreamHandler(stream=sys.stdout)
         log_handler_stream.setLevel(level)
         log_handler_stream.setFormatter(self._getFormatter(name=formatterName))
         self.logger.addHandler(log_handler_stream)

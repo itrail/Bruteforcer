@@ -1,10 +1,12 @@
+import argparse
+import sys 
+import os
+import logging
 from Bruteforcer import Bruteforcer
-from AsyncBruteforcer import Bruteforcer
 from concurrent.futures import ProcessPoolExecutor
-import argparse, sys, os
+from packages.logger import Logger
 from packages.utils import (
     collect_input_args,
-    create_logger,
     validate_input_args,
     parse_url,
     parse_headers,
@@ -16,7 +18,29 @@ from packages.utils import (
 
 parser = argparse.ArgumentParser()
 args = collect_input_args(parser)
-logger = create_logger(args.verbose)
+LOGFILE = "log/app.log"
+LOGFILE_COUNT = 7
+LOGGING_FILE = (
+        True if os.getenv("LOGGING_FILE", "false").lower() == "true" else False
+    )
+LOGGING_STD = True if os.getenv("LOGGING_STD", "true").lower() == "true" else False
+LOGGING_LEVEL = logging.DEBUG if args.verbose > 0 else logging.INFO
+logger = (
+        Logger()
+        .Init(
+            loggerType="std",
+            loggerInit=LOGGING_STD,
+            level=LOGGING_LEVEL,
+            formatterName="formater",
+        )
+        .Init(
+            loggerType="file",
+            loggerInit=LOGGING_FILE,
+            logFile=LOGFILE,
+            logFileCount=LOGFILE_COUNT,
+        )
+        .Get()
+    )
 
 
 def create_process_pool():

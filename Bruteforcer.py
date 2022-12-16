@@ -1,6 +1,7 @@
-import sys, re
+import sys
+import re
 import logging
-import urllib.request, urllib.error, urllib.response, urllib.parse
+from urllib import error, request
 from packages.config import *
 from BruteforcerHTTPRedirectHandler import BruteforcerHTTPRedirectHandler
 
@@ -108,7 +109,7 @@ class Bruteforcer:
         def control_the_proxy_rotation(index, data_to_post):
             try:
                 index = self.proxy_rotating_injection(index, str.encode(data_to_post))
-            except urllib.error.HTTPError as HTTPe:
+            except error.HTTPError as HTTPe:
                 if HTTPe.reason in [
                     "Bad Request",
                     "Unauthorized",
@@ -137,7 +138,8 @@ class Bruteforcer:
                         "No more working IP address in your list! The process will be interrupted!"
                     )
                     sys.exit(-1)
-            return index
+            finally:
+                return index
 
         counter = 0
         index = 0
@@ -161,7 +163,7 @@ class Bruteforcer:
             else:
                 try:
                     self.standard_injection(str.encode(data_to_post))
-                except urllib.error.HTTPError as HTTPe:
+                except error.HTTPError as HTTPe:
                     if HTTPe.reason in [
                         "Bad Request",
                         "Unauthorized",
@@ -170,7 +172,7 @@ class Bruteforcer:
                         self.logger.info("[-] Incorrect credentials [-]")
                     else:
                         self.logger.warning(f"Exception: {HTTPe}")
-                except urllib.error as e:
+                except error as e:
                     self.logger.warning(f"Exception: `{e}`")
                 except Exception as e:
                     self.logger.error(f"Critical exception: `{e}`")
@@ -180,14 +182,14 @@ class Bruteforcer:
         current_credentials = data_bytes.decode("utf-8")
         self.logger.info(f"IP: `{self.proxies[index]}`, Data: `{current_credentials}`")
         redirect_handler = BruteforcerHTTPRedirectHandler()
-        proxy_handler = urllib.request.ProxyHandler(
+        proxy_handler = request.ProxyHandler(
             {"http": self.proxies[index], "https": self.proxies[index]}
         )
-        opener = urllib.request.build_opener(proxy_handler, redirect_handler)
+        opener = request.build_opener(proxy_handler, redirect_handler)
         opener = self.__add_headers__(opener)
-        urllib.request.install_opener(opener)
-        request = urllib.request.Request(self.url, data=data_bytes)
-        with urllib.request.urlopen(request, timeout=10) as response:
+        request.install_opener(opener)
+        request_ = request.Request(self.url, data=data_bytes)
+        with request.urlopen(request_, timeout=10) as response:
             if self.verify_an_autorization(redirect_handler, response):
                 self.logger.info(f"[+] CORRECT CREDENTIALS `{current_credentials}` [+]")
                 sys.exit(0)
@@ -199,11 +201,11 @@ class Bruteforcer:
         current_credentials = data_bytes.decode("utf-8")
         self.logger.info(f"IP: Your IP, Data: `{current_credentials}`")
         redirect_handler = BruteforcerHTTPRedirectHandler()
-        opener = urllib.request.build_opener(redirect_handler)
+        opener = request.build_opener(redirect_handler)
         opener = self.__add_headers__(opener)
-        urllib.request.install_opener(opener)
-        request = urllib.request.Request(self.url, data=data_bytes)
-        with urllib.request.urlopen(request, timeout=10) as response:
+        request.install_opener(opener)
+        request_ = request.Request(self.url, data=data_bytes)
+        with request.urlopen(request_, timeout=10) as response:
             if self.verify_an_autorization(redirect_handler, response):
                 self.logger.debug("Correct credentials found")
                 self.logger.info(f"[+] CORRECT CREDENTIALS `{current_credentials}` [+]")

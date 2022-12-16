@@ -1,7 +1,8 @@
-import json, sys, math, os
+import json
+import sys
+import math
 import logging
-from packages.logger import Logger
-import urllib.parse, urllib.request
+from urllib import parse, request
 
 logger = logging.getLogger("utils")  # config
 
@@ -19,42 +20,15 @@ def collect_input_args(parser):
     return parser.parse_args()
 
 
-def create_logger(level):
-    LOGFILE = "log/app.log"
-    LOGFILE_COUNT = 7
-    LOGGING_FILE = (
-        True if os.getenv("LOGGING_FILE", "false").lower() == "true" else False
-    )
-    LOGGING_STD = True if os.getenv("LOGGING_STD", "true").lower() == "true" else False
-    LOGGING_LEVEL = logging.DEBUG if level > 0 else logging.INFO
-    logger = (
-        Logger()
-        .Init(
-            loggerType="std",
-            loggerInit=LOGGING_STD,
-            level=LOGGING_LEVEL,
-            formatterName="formater",
-        )
-        .Init(
-            loggerType="file",
-            loggerInit=LOGGING_FILE,
-            logFile=LOGFILE,
-            logFileCount=LOGFILE_COUNT,
-        )
-        .Get()
-    )
-    return logger
-
-
 def validate_input_args(args):
     # if not (args.url):
-    #     print("Empty target url of attack!")
+    #     logger.error("Empty target url of attack!")
     #     sys.exit(-1)
     # if not (args.credentials_file):
-    #     print("Login input is empty!")
+    #     logger.error("Login input is empty!")
     #     sys.exit(-1)
     # if not args.data_scheme:
-    #     print("Credentials data to POST form is empty!")
+    #     logger.error("Credentials data to POST form is empty!")
     #     sys.exit(-1)
     if not args.headers:
         args.headers = ""
@@ -81,9 +55,8 @@ def __is_file_empty__(input_file, file_name):
 
 
 def ask_for_continue_without_proxy():
-    keyboard_input = input(
-        "Would You like to continue bruteforce without proxy? Y or N?"
-    )
+    logger.warning("Would You like to continue bruteforce without proxy? Y or N?")
+    keyboard_input = input()
     if keyboard_input.lower() in ["y", "yes", "yeah", ""]:
         logger.warn("I'll continue with your IP")
         return True
@@ -91,10 +64,10 @@ def ask_for_continue_without_proxy():
 
 
 def parse_url(url):
-    parse_url = urllib.parse.urlparse(url)
+    parse_url = parse.urlparse(url)
     host = "{uri.scheme}://{uri.netloc}/".format(uri=parse_url)
     logger.debug(f"Host `{host}` availability check started")
-    with urllib.request.urlopen(host) as response:
+    with request.urlopen(host) as response:
         if response.code in [200, 201]:
             logger.debug(f"Host `{host}` availability check finished correctly")
             return host
@@ -135,32 +108,16 @@ def split_file_for_processes(input_file_raw, processes):
 
 def parse_headers(headers_file_raw):
     def ask_for_continue():
-        keyboard_input = input(
+        logger.warning(
             "Would you like to attack with POST data without your headers? Y or N?"
         )
+        keyboard_input = input()
         if keyboard_input.lower() in ["y", "yes", "yeah", ""]:
             return True
         return False
 
-    headers = {}
-    try:
-        with open(headers_file_raw) as headers_file:
-            if ".json" in headers_file_raw:
-                headers = json.load(headers_file)
-                return headers
-            else:
-                headers_list_raw = list(headers_file.readlines())
-    except json.decoder.JSONDecodeError as e:
-        logger.error(f"Error in headers file `{headers_file_raw}`: `{e}`")
-        if not ask_for_continue():
-            logger.info("Bye!")
-            sys.exit(-1)
-    except FileNotFoundError as e:
-        logger.error(f"Exception in headers file `{headers_file_raw}`: `{e}`")
-        if not ask_for_continue():
-            logger.info("Bye!")
-            sys.exit(-1)
-    else:
+    def parse_text_headers(headers_list_raw):
+        headers = {}
         headers_list_raw_len = len(headers_list_raw)
         current_separator = None
         for separator in [": ", ",", ";", "; "]:  # to config
@@ -177,12 +134,32 @@ def parse_headers(headers_file_raw):
             if not ask_for_continue():
                 logger.info("Bye!")
                 sys.exit(-1)
-            return
+            return {}
         for header in headers_list_raw:
             header = str(header).replace('"', "").replace("'", "")
             headers[header.split(current_separator)[0]] = header.split(
                 current_separator
             )[1].strip()
+        return headers
+
+    headers = {}
+    try:
+        with open(headers_file_raw) as headers_file:
+            if ".json" in headers_file_raw:
+                headers = json.load(headers_file)
+            else:
+                headers_list_raw = list(headers_file.readlines())
+                headers = parse_text_headers(headers_list_raw)
+    except json.decoder.JSONDecodeError as e:
+        logger.error(f"Error in headers file `{headers_file_raw}`: `{e}`")
+        if not ask_for_continue():
+            logger.info("Bye!")
+            sys.exit(-1)
+    except FileNotFoundError as e:
+        logger.error(f"Exception in headers file `{headers_file_raw}`: `{e}`")
+        if not ask_for_continue():
+            logger.info("Bye!")
+            sys.exit(-1)
     return headers
 
 
@@ -202,26 +179,3 @@ def open_credentials_file(credentials_file_raw):
         if __is_file_empty__(credentials_list, credentials_file_raw):
             sys.exit(-1)
     return credentials_list
-
-
-def set_proxies(proxies_file_raw, attemps_per_ip, len_credentials_list):
-    try:
-        with open(proxies_file_raw) as proxies_file:
-            proxies = [line.rstrip() for line in proxies_file if line.strip()]
-            if not proxies:
-                raise ValueError(f"{proxies_file_raw} is empty")
-    except FileNotFoundError as e:
-        logger.warning(f"Exception in proxies file `{proxies_file_raw}`: `{e}`")
-        if not ask_for_continue_without_proxy():
-            logger.info("Bye!")
-            sys.exit(0)
-        return
-    except ValueError as e:
-        logger.warning(f"Exception: `{e}`")
-    else:
-        if attemps_per_ip * len(proxies) < len_credentials_list:
-            logger.warning(
-                f"There is too much credentials to check for (`{len_credentials_list}`) for `{attemps_per_ip}` trials per `{len(proxies)}` IP addresses. Rest of the attemps will be performed with last IP in list: `{proxies[len(proxies)-1]}`"
-            )
-            while attemps_per_ip * len(proxies) < len_credentials_list:
-                proxies.insert(len(proxies), proxies[len(proxies) - 1])
