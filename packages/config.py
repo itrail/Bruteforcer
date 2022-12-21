@@ -1,1 +1,2 @@
-CREDENTIAL_ENVS = ["${USERNAME}", "${PASSWORD}"]
+separators = [": ", ":", ",", ";", "; "]
+user_variable_regex = "\$\{[a-zA-Z]+}"

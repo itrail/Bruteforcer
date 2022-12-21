@@ -1,7 +1,7 @@
-import urllib.request
+from urllib.request import HTTPRedirectHandler
 
 
-class BruteforcerHTTPRedirectHandler(urllib.request.HTTPRedirectHandler):
+class BruteforcerHTTPRedirectHandler(HTTPRedirectHandler):
     def __init__(self) -> None:
         super().__init__()
         self.redirects = []

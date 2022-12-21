@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 import sys
 import logging
 import logging.handlers
@@ -19,6 +18,9 @@ class Logger(object):
         if loggerInit:
             if loggerType == "std":
                 self._stdLogger(*args, **kwargs)
+            elif loggerType == "file":
+                self._fileLogger(*args, **kwargs)
+
         return self
 
     def Get(self):
@@ -30,10 +32,23 @@ class Logger(object):
 
     def _stdLogger(self, stream=sys.stdout, level=logging.DEBUG, formatterName="rich"):
         # handler: stream
-        log_handler_stream = logging.StreamHandler(stream=sys.stderr)
+        log_handler_stream = logging.StreamHandler(stream=sys.stdout)
         log_handler_stream.setLevel(level)
         log_handler_stream.setFormatter(self._getFormatter(name=formatterName))
         self.logger.addHandler(log_handler_stream)
+        return self
+
+    def _fileLogger(
+        self, logFile, logFileCount=8, level=logging.DEBUG, formatterName="rich"
+    ):
+        # handler: file
+        log_handler_file = logging.handlers.TimedRotatingFileHandler(
+            filename=logFile, when="midnight", backupCount=logFileCount
+        )
+        log_handler_file.setLevel(level)
+        log_handler_file.setFormatter(self._getFormatter(name=formatterName))
+        self.logger.addHandler(log_handler_file)
+
         return self
 
     def _getFormatter(self, name):
