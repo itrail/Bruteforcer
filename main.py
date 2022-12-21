@@ -1,8 +1,9 @@
 import argparse
-import sys 
+import sys
 import os
 import logging
 from Bruteforcer import Bruteforcer
+from urllib.error import HTTPError, URLError
 from concurrent.futures import ProcessPoolExecutor
 from packages.logger import Logger
 from packages.utils import (
@@ -13,6 +14,8 @@ from packages.utils import (
     parse_data_scheme,
     split_file_for_processes,
     ask_for_continue_without_proxy,
+    open_file_as_list,
+    find_separator,
 )
 
 
@@ -20,27 +23,25 @@ parser = argparse.ArgumentParser()
 args = collect_input_args(parser)
 LOGFILE = "log/app.log"
 LOGFILE_COUNT = 7
-LOGGING_FILE = (
-        True if os.getenv("LOGGING_FILE", "false").lower() == "true" else False
-    )
+LOGGING_FILE = True if os.getenv("LOGGING_FILE", "false").lower() == "true" else False
 LOGGING_STD = True if os.getenv("LOGGING_STD", "true").lower() == "true" else False
 LOGGING_LEVEL = logging.DEBUG if args.verbose > 0 else logging.INFO
 logger = (
-        Logger()
-        .Init(
-            loggerType="std",
-            loggerInit=LOGGING_STD,
-            level=LOGGING_LEVEL,
-            formatterName="formater",
-        )
-        .Init(
-            loggerType="file",
-            loggerInit=LOGGING_FILE,
-            logFile=LOGFILE,
-            logFileCount=LOGFILE_COUNT,
-        )
-        .Get()
+    Logger()
+    .Init(
+        loggerType="std",
+        loggerInit=LOGGING_STD,
+        level=LOGGING_LEVEL,
+        formatterName="formater",
     )
+    .Init(
+        loggerType="file",
+        loggerInit=LOGGING_FILE,
+        logFile=LOGFILE,
+        logFileCount=LOGFILE_COUNT,
+    )
+    .Get()
+)
 
 
 def create_process_pool():
@@ -63,16 +64,26 @@ def main():
     data_scheme = parse_data_scheme(args.data_scheme)
     logger.debug(f"Parsing file `{args.data_scheme}` finished correctly")
     logger.debug(f"Parsing file `{args.credentials_file}` started")
-    all_credentials = split_file_for_processes(args.credentials_file, args.processes)
-    logger.debug(f"Parsing file `{args.credentials_file}` finished correctly")
-    all_proxies = [[] * process for process in range(args.processes)]
+    credentials_list = open_file_as_list(args.credentials_file)
+    if credentials_list:
+        current_separator = find_separator(credentials_list, args.credentials_file)
+        if not current_separator:
+            logger.info(f"No separator found in `{args.credentials_file}`")
+        all_credentials = split_file_for_processes(credentials_list, args.processes)
+        logger.debug(f"Parsing file `{args.credentials_file}` finished correctly")
+    else:
+        logger.error(f"File `{args.credentials_file}` is empty")
+        # dupa tutaj zesrać
     if args.proxies:
         logger.debug(f"Parsing file `{args.proxies}` started")
-        all_proxies = split_file_for_processes(args.proxies, args.processes)
-        logger.debug(f"Parsing file `{args.proxies}` finished correctly")
-        if not all_proxies[0] and not ask_for_continue_without_proxy():
+        proxies_list = open_file_as_list(args.proxies)
+        if not proxies_list and not ask_for_continue_without_proxy():
             logger.info("Bye!")
             sys.exit(0)
+        all_proxies = split_file_for_processes(proxies_list, args.processes)
+        logger.debug(f"Parsing file `{args.proxies}` finished correctly")
+    else:
+        all_proxies = [[] * process for process in range(args.processes)]
 
     process_executor = create_process_pool()
     bruteforce_tools = []
@@ -86,6 +97,7 @@ def main():
                 data_scheme,
                 args.data_scheme,
                 all_credentials[process],
+                current_separator,
                 args.fail_url,
                 all_proxies[process],
                 args.attemps_per_ip,
@@ -110,5 +122,7 @@ if __name__ == "__main__":
             sys.exit(0)
         except SystemExit:
             os._exit(0)
+    except URLError as e:
+        logger.error(f"Exception `{e}`. Incorrect url: `{args.url}`")
     except Exception as e:
         logger.error(f"Exception `{e}`")

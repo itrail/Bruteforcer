@@ -3,8 +3,9 @@ import sys
 import math
 import logging
 from urllib import parse, request
+from packages.config import separators
 
-logger = logging.getLogger("utils")  # config
+logger = logging.getLogger("utils")
 
 
 def collect_input_args(parser):
@@ -30,6 +31,8 @@ def validate_input_args(args):
     # if not args.data_scheme:
     #     logger.error("Credentials data to POST form is empty!")
     #     sys.exit(-1)
+    if args.processes <= 0:
+        args.processes = 1
     if not args.headers:
         args.headers = ""
     if not args.fail_url:
@@ -73,9 +76,63 @@ def parse_url(url):
             return host
         else:
             logger.error(f"Host `{host}` availability check failed")
+            return None
 
 
-def split_file_for_processes(input_file_raw, processes):
+def open_file_as_list(input_file_raw):
+    with open(input_file_raw) as input_file:
+        logger.debug(f"File `{input_file_raw}` opened")
+        input_as_a_list = input_file.readlines()
+        if __is_file_empty__(input_as_a_list, input_file_raw):
+            sys.exit(-1)
+        return input_as_a_list
+
+
+def find_separator(input_list, input_file_raw):
+    current_separator = ""
+    len_input_list = len(input_list)
+    for separator in separators:
+        if len([item for item in input_list if separator in item]) == len_input_list:
+            current_separator = separator
+            break
+    if current_separator:
+        logger.debug(
+            f"Separator `{current_separator}` found in `{input_file_raw}` file"
+        )
+    return current_separator
+    # if not input_file_raw:
+    #     sys.exit(-1)
+    # TU JEST KALSA
+    # input_list = __open_file_as_list(input_file_raw)
+    # current_separator = __find_separator(input_list, input_file_raw)
+
+
+def split_file_for_processes(input_list, processes):
+    if processes > 1:
+        if len(input_list) < processes:
+            data_for_processes = [input_list] * processes
+            logger.warning(
+                f"You have selected more workers (`{processes}`) than data to attack `{len(input_list)}`! Each process will get all the data to check"
+            )
+        else:
+            lines_in_part = math.floor(len(input_list) / processes)
+            data_for_processes = []
+            for j in range(processes):
+                # reszta dla ostatniego procesu
+                if j + 1 == processes:
+                    temp_list = input_list
+                else:
+                    temp_list = []
+                    for _ in range(lines_in_part):
+                        item = input_list.pop(0)
+                        temp_list.append(item)
+                data_for_processes.append(temp_list)
+        return data_for_processes
+    else:
+        return [input_list]
+
+
+def split_file_for_processes2(input_file_raw, processes):
     # if not input_file_raw:
     #     sys.exit(-1)
     with open(input_file_raw) as input_file:
@@ -116,25 +173,15 @@ def parse_headers(headers_file_raw):
             return True
         return False
 
-    def parse_text_headers(headers_list_raw):
+    def parse_text_headers(headers_list_raw, headers_file_raw):
         headers = {}
-        headers_list_raw_len = len(headers_list_raw)
-        current_separator = None
-        for separator in [": ", ",", ";", "; "]:  # to config
-            if (
-                len([header for header in headers_list_raw if separator in header])
-                == headers_list_raw_len
-            ):
-                current_separator = separator
-                break
-        if not current_separator or headers_list_raw_len == 0:
+        current_separator = find_separator(headers_list_raw, headers_file_raw)
+        if not current_separator and not ask_for_continue():
             logger.warning(
-                f"Unknown separator in `{headers_file_raw}` or file is empty! Please give me correct headers file"
+                f"Unknown separator in `{headers_file_raw}`! Please give me correct credentials file"
             )
-            if not ask_for_continue():
-                logger.info("Bye!")
-                sys.exit(-1)
-            return {}
+            logger.info("Bye!")
+            sys.exit(-1)
         for header in headers_list_raw:
             header = str(header).replace('"', "").replace("'", "")
             headers[header.split(current_separator)[0]] = header.split(
@@ -149,7 +196,7 @@ def parse_headers(headers_file_raw):
                 headers = json.load(headers_file)
             else:
                 headers_list_raw = list(headers_file.readlines())
-                headers = parse_text_headers(headers_list_raw)
+                headers = parse_text_headers(headers_list_raw, headers_file_raw)
     except json.decoder.JSONDecodeError as e:
         logger.error(f"Error in headers file `{headers_file_raw}`: `{e}`")
         if not ask_for_continue():

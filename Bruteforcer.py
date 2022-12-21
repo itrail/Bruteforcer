@@ -2,7 +2,7 @@ import sys
 import re
 import logging
 from urllib import error, request
-from packages.config import *
+from packages.config import user_variable_regex
 from BruteforcerHTTPRedirectHandler import BruteforcerHTTPRedirectHandler
 
 
@@ -15,6 +15,7 @@ class Bruteforcer:
         data_scheme,
         data_scheme_filename,
         credentials_list,
+        credentials_separator,
         fail_url_pattern,
         proxies,
         attemps_per_ip,
@@ -27,6 +28,7 @@ class Bruteforcer:
         self.fail_url = fail_url_pattern
         self.headers = headers
         self.data_scheme = data_scheme
+        self.credentials_separator = credentials_separator
         # self.credentials_list = credentials_list
         self.logger.debug(
             f"Credentials and POST injection data scheme validation started"
@@ -57,14 +59,17 @@ class Bruteforcer:
     ):
         # jeżeli zmienna jest duplikowana to i tak zmieniane są wszystkie na raz
         variables_to_injection = list(
-            dict.fromkeys(re.findall("\$\{[a-zA-Z]+}", data_scheme))  # config
+            dict.fromkeys(re.findall(user_variable_regex, data_scheme))
         )
         len_variables_to_injection = len(variables_to_injection)
         self.logger.debug(
             f"{len_variables_to_injection} variables `{variables_to_injection}` found in `{data_scheme_filename}`"
         )
         credentials = []
-        fields_cnt = credentials_file[0].count(":") + 1
+        if self.credentials_separator:
+            fields_cnt = credentials_file[0].count(self.credentials_separator) + 1
+        else:
+            fields_cnt = 1
         if fields_cnt > len_variables_to_injection:
             self.logger.info(
                 f"In credentials file is `{fields_cnt}` fields, and it's more than is needed in API data scheme (`{len_variables_to_injection}`)! I'll only use the first `{len_variables_to_injection}` columns from the credentials file"
@@ -73,21 +78,30 @@ class Bruteforcer:
             # pomija puste linijki
             line = line.rstrip()
             if line.strip():
-                current_fields_cnt = line.count(":") + 1
+                if self.credentials_separator:
+                    current_fields_cnt = line.count(self.credentials_separator) + 1
+                else:
+                    current_fields_cnt = 1
                 self.logger.debug(
                     f"Fields in line `{line}`credentials file: `{current_fields_cnt}`, Variables in your data to injection file: {len(variables_to_injection)}"
                 )
                 if current_fields_cnt == 0:
                     continue
                 elif current_fields_cnt != fields_cnt:
-                    self.logger.info(
-                        f"Line `{line.rstrip()}` differs than other lines in credentials file"
+                    self.logger.error(
+                        f"Line `{line.rstrip()}` differs than other lines in credentials file! Try to change data separator!"
                     )
                     sys.exit(-1)
                 elif current_fields_cnt >= len_variables_to_injection:
-                    credentials.append(
-                        tuple(line.split(":")[i] for i in range(fields_cnt))
-                    )
+                    if self.credentials_separator:
+                        credentials.append(
+                            tuple(
+                                line.split(self.credentials_separator)[i]
+                                for i in range(fields_cnt)
+                            )
+                        )
+                    else:
+                        credentials.append((line,))
                 else:
                     self.logger.error(
                         "Match the number of columns in credential file to the number of variables in the text file with API data scheme"
@@ -138,8 +152,7 @@ class Bruteforcer:
                         "No more working IP address in your list! The process will be interrupted!"
                     )
                     sys.exit(-1)
-            finally:
-                return index
+            return index
 
         counter = 0
         index = 0
@@ -192,7 +205,6 @@ class Bruteforcer:
         with request.urlopen(request_, timeout=10) as response:
             if self.verify_an_autorization(redirect_handler, response):
                 self.logger.info(f"[+] CORRECT CREDENTIALS `{current_credentials}` [+]")
-                sys.exit(0)
             else:
                 self.logger.info("[-] Incorrect credentials [-]")
         return index
@@ -224,7 +236,7 @@ class Bruteforcer:
                 len([url for url in redirects if self.fail_url in url]) > 0
             )
         elif redirects and not self.fail_url:
-            is_fail_url_match = True  # ewidentnue
+            is_fail_url_match = True
         elif not redirects:
             is_fail_url_match = False
         if response.code in [200, 201] and not is_fail_url_match:
